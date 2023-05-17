@@ -50,7 +50,7 @@
 
     <div class="main" id="main">
         <div style="width: 55%; margin: 2%;">
-            <div class="menu">
+            <div class="menu" id = "buttons">
                 <button class="button-82-pushable" role="button" onclick="modoManual()">
                     <span class="button-82-shadow"></span>
                     <span class="button-82-edge"></span>
@@ -70,13 +70,6 @@
                     <span class="button-82-edge"></span>
                     <span class="button-82-front text">
                         Intensidad
-                    </span>
-                </button>
-                <button class="button-82-pushable" role="button" onclick="modoConjunto()">
-                    <span class="button-82-shadow"></span>
-                    <span class="button-82-edge"></span>
-                    <span class="button-82-front text">
-                        Conjunto
                     </span>
                 </button>
                 <button class="button-82-pushable" role="button" onclick="modoShutdown()">
@@ -128,7 +121,7 @@
             </h1>
             <div class="major_container_row">
                 <svg viewBox="0 0 1024 1024" class="icon" version="1.1" xmlns="http://www.w3.org/2000/svg"
-                    fill="#000000" width = "200">
+                    fill="#000000" width="200">
                     <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
                     <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
                     <g id="SVGRepo_iconCarrier">
@@ -164,21 +157,26 @@
 
                 <div class="col">
                     <div class="row">
-                        <div>
+                        <div style="margin: 5px;">
                             <h2>Encendido</h2>
                             <input type="time" id="horaEncendido" name="horaEncendido" min="00:00" max="23:59">
                         </div>
-                        <div>
+                        <div style="margin: 5px;">
                             <h2>Apagado</h2>
                             <input type="time" id="horaApagado" name="horaApagado" min="00:00" max="23:59">
                         </div>
+                    </div>
+                    <div class = row>
+                        <h2>Encender por tiempo: </h2>
+                        <input type="number" id="tiempo" name="horaEncendido">
+                        <button class="boton" onclick="encender_por_tiempo()">Enceder</button>
                     </div>
                 </div>
             </div>
 
 
             <div id="automaticoIntensidad">
-                <h2>Ajustes de prendido y apagado automatico por intensidad</h2>
+                <h2>Ajuste de temperatura</h2>
                 <div class="col">
                     <form action="/set_point" method="post">
                         <div class="col">
@@ -194,6 +192,20 @@
                     </form>
                 </div>
             </div>
+        </div>
+
+        <div id = "charts" class = "container" style="width: fit-content; margin-top: 30px;">
+
+            <div id="chart-Temperatura" >
+           
+            </div>
+            <div id="chart-Horno" >
+               
+            </div>
+            <div id="chart-Ventilador" >
+               
+            </div>
+
         </div>
     </div>
 

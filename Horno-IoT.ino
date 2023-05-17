@@ -1,14 +1,12 @@
 // Librerias
 #include <Arduino.h>
 #include <WiFi.h>
+#include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
+#include <ArduinoJson.h>
 #include "SPIFFS.h"
 #include "config.h"
-#include <RBDdimmer.h>
 #include <HTTPClient.h>
-// MELODIAS
-#include <melody_player.h>
-#include <melody_factory.h>
 
 #define ADC_VREF_mV    3300.0 // 3.3v en millivoltios
 #define ADC_RESOLUTION 4096.0
@@ -188,23 +186,23 @@ void enfriar() {
   digitalWrite(rele_ventilador2, LOW);
 }
 
-void encender_horno(){
+void encender_horno() {
   horno_state = "ON";
   digitalWrite(rele_horno, LOW);
 }
 
-void apagar_horno(){
+void apagar_horno() {
   horno_state = "OFF";
   digitalWrite(rele_horno, HIGH);
 }
 
-void encender_ventilador(){
+void encender_ventilador() {
   ventilador_state = "ON";
   digitalWrite(rele_ventilador1, LOW);
   digitalWrite(rele_ventilador2, LOW);
 }
 
-void apagar_ventilador(){
+void apagar_ventilador() {
   ventilador_state = "OFF";
   digitalWrite(rele_ventilador1, HIGH);
   digitalWrite(rele_ventilador2, HIGH);
@@ -224,10 +222,10 @@ void setup()
 
   server.on("/switch_calentar_horno", HTTP_GET, [](AsyncWebServerRequest * request)
   {
-     temperatura = -1000;
-    if(horno_state == "ON"){
+    temperatura = -1000;
+    if (horno_state == "ON") {
       apagar_horno();
-    }else{
+    } else {
       encender_horno();
     }
     request->redirect("/");
@@ -235,14 +233,26 @@ void setup()
 
   server.on("/switch_enfriar_horno", HTTP_GET, [](AsyncWebServerRequest * request)
   {
-     temperatura = -1000;
-    if(ventilador_state == "ON"){
-     apagar_ventilador();
-    }else{
+    temperatura = -1000;
+    if (ventilador_state == "ON") {
+      apagar_ventilador();
+    } else {
       encender_ventilador();
     }
     request->redirect("/");
   });
+
+  server.on("/encender_horno", HTTP_GET, [](AsyncWebServerRequest * request)
+  {
+    encender_horno();
+    request->redirect("/");
+  });  
+
+  server.on("/apagar_horno", HTTP_GET, [](AsyncWebServerRequest * request)
+  {
+    apagar_horno();
+    request->redirect("/");
+  }); 
 
   server.on("/set_point", HTTP_POST, [](AsyncWebServerRequest * request)
   {
@@ -260,6 +270,8 @@ void setup()
     calentar();
     delay(2000);
     enfriar();
+    horno_state = "OFF";
+    ventilador_state = "OFF";
     digitalWrite(rele_horno, HIGH);
     digitalWrite(rele_ventilador1, HIGH);
     digitalWrite(rele_ventilador2, HIGH);
@@ -281,6 +293,36 @@ void setup()
     request->redirect("/");
   });
 
+  server.on("/modoApagado", HTTP_GET, [](AsyncWebServerRequest * request)
+  {
+    modo = "apagado";
+    apagar_horno();
+    apagar_ventilador();
+    request->redirect("/");
+  });
+
+  server.on("/modoEncendido", HTTP_GET, [](AsyncWebServerRequest * request)
+  {
+    request->redirect("/");
+  });
+
+  server.on("/get_status", HTTP_GET, [](AsyncWebServerRequest * request) {
+    datoVal = analogRead(PIN_LM35);
+    // Convirtiendo los datos del ADC a milivoltios
+    milliVolt = datoVal * (ADC_VREF_mV / ADC_RESOLUTION);
+    // Convirtiendo el voltaje al temperatura en °C
+    tempC = datoVal * factor ;
+
+    StaticJsonDocument<200> doc;
+    doc["ventilador"] = ventilador_state;
+    doc["horno"]= horno_state;
+    doc["temperatura"] = tempC;
+    doc["rssi"] = WiFi.RSSI();
+
+    String jsonString;
+    serializeJson(doc, jsonString);
+    request->send(200, "application/json", jsonString);
+  });
 
   server.serveStatic("/", SPIFFS, "/");
   server.begin();
@@ -315,7 +357,7 @@ void loop()
   if (temperatura != -1000) {
     if (tempC > temperatura) {
       enfriar();
-    }else{
+    } else {
       calentar();
     }
   }

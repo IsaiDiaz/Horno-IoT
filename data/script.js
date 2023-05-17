@@ -9,17 +9,7 @@ window.onload = function() {
   modoManual();
 };
 
-enfriar.addEventListener("click", () => {
-  let paths = enfriar.getElementsByTagName("path");
-  let color = paths[0].getAttribute("stroke") == "#0000aa" ? "#000000" : "#0000aa";
-  for (let i = 0; i < paths.length; i++) {
-    paths[i].setAttribute("stroke", color);
-  }
-  //Encender o apagar el horno llamando al servidor ESP32
-  enfriar_horno();
-});
-
-calentar.addEventListener("click", () => {
+function switch_calentar(){
   let paths = horno.getElementsByTagName("path");
   let color = paths[0].getAttribute("fill") == "#ff1200" ? "#000000" : "#ff1200";
   for (let i = 0; i < paths.length; i++) {
@@ -27,7 +17,49 @@ calentar.addEventListener("click", () => {
   }
   //Encender o apagar el horno llamando al servidor ESP32
   calentar_horno();
-});
+}
+
+function switch_enfriar(){
+  let paths = enfriar.getElementsByTagName("path");
+  let color = paths[0].getAttribute("stroke") == "#0000aa" ? "#000000" : "#0000aa";
+  for (let i = 0; i < paths.length; i++) {
+    paths[i].setAttribute("stroke", color);
+  }
+  //Encender o apagar el horno llamando al servidor ESP32
+  enfriar_horno();
+}
+
+function apagar_horno(){
+  let paths = calentar.getElementsByTagName("path");
+  for (let i = 0; i < paths.length; i++) {
+    paths[i].setAttribute("fill", "#000000");
+  }
+}
+
+function encender_horno(){
+  let paths = calentar.getElementsByTagName("path");
+  for (let i = 0; i < paths.length; i++) {
+    paths[i].setAttribute("fill", "#ff1200");
+  }
+}
+
+function apagar_ventilador(){
+  let paths = enfriar.getElementsByTagName("path");
+  for (let i = 0; i < paths.length; i++) {
+    paths[i].setAttribute("stroke", "#000000");
+  }
+}
+
+function encender_ventilador(){
+  let paths = enfriar.getElementsByTagName("path");
+  for (let i = 0; i < paths.length; i++) {
+    paths[i].setAttribute("stroke", "#0000aa");
+  }
+}
+
+enfriar.addEventListener("click", switch_enfriar);
+
+calentar.addEventListener("click", switch_calentar);
 
 function enfriar_horno() {
   var xhttp = new XMLHttpRequest();
@@ -39,6 +71,25 @@ function calentar_horno() {
   var xhttp = new XMLHttpRequest();
   xhttp.open("GET", "/switch_calentar_horno", true);
   xhttp.send();
+}
+
+function encender_horno_servidor(){
+  var xhttp = new XMLHttpRequest();
+  xhttp.open("GET", "/encender_horno", true);
+  xhttp.send();
+}
+
+function apagar_horno_servidor(){
+  var xhttp = new XMLHttpRequest();
+  xhttp.open("GET", "/apagar_horno", true);
+  xhttp.send();
+}
+
+async function encender_por_tiempo(){
+  value = document.getElementById("tiempo").value;
+  encender_horno_servidor();
+  encender_horno();
+  sleep(value);
 }
 
 async function getWeatherData() {
@@ -91,23 +142,14 @@ async function getTimeData() {
     if (seconds === 0) {
       const foco = document.getElementById("focoAutomatico");
 
-      const paths = foco.getElementsByTagName("path");
-
       if (enHours === hours && enMinutes === minutes) {
-        switch_horno();
+        encender_horno_servidor();
         console.log("Encendiendo foco");
-        for (let i = 0; i < paths.length; i++) {
-          paths[i].setAttribute("fill", "#fff200");
-        }
+        encender_horno();
       } else if (apHours === hours && apMinutes === minutes) {
-        switch_horno();
+        apagar_horno_servidor();
         console.log("Apagando foco");
-        for (let i = 0; i < paths.length; i++) {
-          paths[i].setAttribute("fill", "#000000");
-          if(i >= 0 && i <= 6){
-            paths[i].setAttribute("fill", "#fff20000");
-          }
-        }
+        apagar_horno();
       }
     }
 }
@@ -115,6 +157,127 @@ async function getTimeData() {
 getWeatherData();
 /* call getTimeData every second */
 setInterval(getTimeData, 1000);
+
+var chartADC = new Highcharts.Chart({
+  chart:{ renderTo:'chart-Temperatura' },
+  title: { text: 'Temperatura' },
+  series: [{
+    showInLegend: false,
+    data: []
+  }],
+  plotOptions: {
+    line: { animation: false,
+      dataLabels: { enabled: true }
+    },
+    series: { color: '#18009c' }
+  },
+  xAxis: {
+    type: 'datetime',
+    dateTimeLabelFormats: { second:'%S' }
+  },
+  yAxis: {
+    title: { text: 'Datos del sensor LM35' }
+  },
+  credits: { enabled: false }
+});
+
+var chartHorno = new Highcharts.Chart({
+  chart:{ renderTo:'chart-Horno' },
+  title: { text: 'Horno' },
+  series: [{
+    showInLegend: false,
+    data: []
+  }],
+  plotOptions: {
+    line: { animation: false,
+      dataLabels: { enabled: true }
+    },
+    series: { color: '#18009c' }
+  },
+  xAxis: {
+    type: 'datetime',
+    dateTimeLabelFormats: { second:'%S' }
+  },
+  yAxis: {
+    title: { text: 'Estado del horno' }
+  },
+  credits: { enabled: false }
+});
+
+var chartVentilador = new Highcharts.Chart({
+  chart:{ renderTo:'chart-Ventilador' },
+  title: { text: 'Ventilador' },
+  series: [{
+    showInLegend: false,
+    data: []
+  }],
+  plotOptions: {
+    line: { animation: false,
+      dataLabels: { enabled: true }
+    },
+    series: { color: '#18009c' }
+  },
+  xAxis: {
+    type: 'datetime',
+    dateTimeLabelFormats: { second:'%S' }
+  },
+  yAxis: {
+    title: { text: 'Estado del ventilador' }
+  },
+  credits: { enabled: false }
+});
+
+async function getServerStatus(){
+  await fetch('/get_status')
+  .then(response => response.json())
+  .then(data => {
+    // si el valor de 'ventilador' es 'ON' se pinta el svg con id enfriar de color azul
+    if(data.ventilador === 'ON'){
+      encender_ventilador();
+    }else{
+      apagar_ventilador();
+    }
+
+    if(data.horno === 'ON'){
+      encender_horno();
+    }else{
+      apagar_horno();
+    }
+
+    var xh = (new Date()).getTime(), // current time
+    yh = data.horno === "ON"? 1: 0;
+
+    var xv = (new Date()).getTime(), // current time
+    yv = data.ventilador === "ON"? 1: 0;
+
+    var x = (new Date()).getTime(), // current time
+    y = parseInt(data.temperatura);
+
+    if(chartADC.series[0].data.length > 40) {
+      chartADC.series[0].addPoint([x, y], true, true, true);
+    } else {
+      chartADC.series[0].addPoint([x, y], true, false, true);
+    }
+
+    if(chartHorno.series[0].data.length > 40) {
+      chartHorno.series[0].addPoint([xh, yh], true, true, true);
+    } else {
+      chartHorno.series[0].addPoint([xh, yh], true, false, true);
+    }
+
+    if(chartVentilador.series[0].data.length > 40) {
+      chartVentilador.series[0].addPoint([xv, yv], true, true, true);
+    }else {
+      chartVentilador.series[0].addPoint([xv, yv], true, false, true);
+    }
+
+  })
+  .catch(error => {
+    console.error('Error:', error);
+  });
+}
+
+setInterval(getServerStatus, 500);
 
 function update(val) {
   const foco = document.getElementById("foco");
@@ -140,146 +303,6 @@ function updateA(val) {
   document.getElementById('pwmInputA').value = val ; 
   document.getElementById('textInputA').value = val; 
 }
-// Get current sensor readings when the page loads  
-window.addEventListener('load', getReadings);
-
-// Create Temperature Gauge
-var gaugeTemp = new LinearGauge({
-  renderTo: 'gauge-temperature',
-  width: 120,
-  height: 400,
-  units: "Dato 1",
-  minValue: 0,
-  startAngle: 90,
-  ticksAngle: 180,
-  maxValue: 40,
-  colorValueBoxRect: "#049faa",
-  colorValueBoxRectEnd: "#049faa",
-  colorValueBoxBackground: "#f1fbfc",
-  valueDec: 2,
-  valueInt: 2,
-  majorTicks: [
-      "0",
-      "5",
-      "10",
-      "15",
-      "20",
-      "25",
-      "30",
-      "35",
-      "40"
-  ],
-  minorTicks: 4,
-  strokeTicks: true,
-  highlights: [
-      {
-          "from": 30,
-          "to": 40,
-          "color": "rgba(200, 50, 50, .75)"
-      }
-  ],
-  colorPlate: "#fff",
-  colorBarProgress: "#CC2936",
-  colorBarProgressEnd: "#049faa",
-  borderShadowWidth: 0,
-  borders: false,
-  needleType: "arrow",
-  needleWidth: 2,
-  needleCircleSize: 7,
-  needleCircleOuter: true,
-  needleCircleInner: false,
-  animationDuration: 1500,
-  animationRule: "linear",
-  barWidth: 10,
-}).draw();
-  
-// Create Humidity Gauge
-/* var gaugeHum = new RadialGauge({
-  renderTo: 'gauge-humidity',
-  width: 300,
-  height: 300,
-  units: "Dato 2 (%)",
-  minValue: 0,
-  maxValue: 100,
-  colorValueBoxRect: "#049faa",
-  colorValueBoxRectEnd: "#049faa",
-  colorValueBoxBackground: "#f1fbfc",
-  valueInt: 2,
-  majorTicks: [
-      "0",
-      "20",
-      "40",
-      "60",
-      "80",
-      "100"
-
-  ],
-  minorTicks: 4,
-  strokeTicks: true,
-  highlights: [
-      {
-          "from": 80,
-          "to": 100,
-          "color": "#03C0C1"
-      }
-  ],
-  colorPlate: "#fff",
-  borderShadowWidth: 0,
-  borders: false,
-  needleType: "line",
-  colorNeedle: "#007F80",
-  colorNeedleEnd: "#007F80",
-  needleWidth: 2,
-  needleCircleSize: 3,
-  colorNeedleCircleOuter: "#007F80",
-  needleCircleOuter: true,
-  needleCircleInner: false,
-  animationDuration: 1500,
-  animationRule: "linear"
-}).draw(); */
-
-// Function to get current readings on the webpage when it loads for the first time
-function getReadings(){
-  var xhr = new XMLHttpRequest();
-  xhr.onreadystatechange = function() {
-    if (this.readyState == 4 && this.status == 200) {
-      var myObj = JSON.parse(this.responseText);
-      console.log(myObj);
-      var temp = myObj.temperature;
-      var hum = myObj.humidity;
-      gaugeTemp.value = temp;
-      gaugeHum.value = hum;
-    }
-  }; 
-  xhr.open("GET", "/readings", true);
-  xhr.send();
-}
-
-/* if (!!window.EventSource) {
-  var source = new EventSource('/events');
-  
-  source.addEventListener('open', function(e) {
-    console.log("Events Connected");
-  }, false);
-
-  source.addEventListener('error', function(e) {
-    if (e.target.readyState != EventSource.OPEN) {
-      console.log("Events Disconnected");
-    }
-  }, false);
-  
-  source.addEventListener('message', function(e) {
-    console.log("message", e.data);
-  }, false);
-  
-  source.addEventListener('new_readings', function(e) {
-    console.log("new_readings", e.data);
-    var myObj = JSON.parse(e.data);
-    console.log(myObj);
-    gaugeTemp.value = myObj.temperature;
-    gaugeHum.value = myObj.humidity;
-  }, false);
-} */
 
 function updateV(val) {
   console.log(val);
@@ -302,9 +325,9 @@ function modoAutomaticoHorario(){
   document.getElementById("automaticoIntensidad").style.display = "none";
   document.getElementById("manual").style.display = "none";
 
-  var xhttp = new XMLHttpRequest();
+  /*var xhttp = new XMLHttpRequest();
   xhttp.open("GET", "/modoAutomaticoHorario", true);
-  xhttp.send();
+  xhttp.send();*/
 }
 
 function modoAutomaticoIntensidad(){
@@ -339,6 +362,8 @@ function modoShutdown(){
     document.getElementById("ucb").width = 500;
     document.getElementById("ucb").src = "https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Flpz.ucb.edu.bo%2Fwp-content%2Fuploads%2F2021%2F04%2Flogo-ucb-colores-2.png&f=1&nofb=1&ipt=daab04e4fa3363ed24d046e7087fb7d1ac4f56b36bc7d6ced8be707364cb9e32&ipo=images";
     document.getElementById("onoff").textContent = "Encender";
+    document.getElementById("charts").style.display = "none";
+    
     var xhttp = new XMLHttpRequest();
     xhttp.open("GET", "/modoApagado", true);
     xhttp.send();
@@ -349,6 +374,8 @@ function modoShutdown(){
     document.getElementById("ucb").width = 275;
     document.getElementById("ucb").src = "https://secrad.lpz.ucb.edu.bo/wp-content/uploads/2019/05/logo1-e1617112271575.png";
     document.getElementById("onoff").textContent = "Apagar";
+    document.getElementById("charts").style.display = "block";
+
     var xhttp = new XMLHttpRequest();
     xhttp.open("GET", "/modoEncendido", true);
     xhttp.send();
