@@ -224,6 +224,7 @@ void setup()
 
   server.on("/switch_calentar_horno", HTTP_GET, [](AsyncWebServerRequest * request)
   {
+     temperatura = -1000;
     if(horno_state == "ON"){
       apagar_horno();
     }else{
@@ -234,6 +235,7 @@ void setup()
 
   server.on("/switch_enfriar_horno", HTTP_GET, [](AsyncWebServerRequest * request)
   {
+     temperatura = -1000;
     if(ventilador_state == "ON"){
      apagar_ventilador();
     }else{
@@ -268,6 +270,8 @@ void setup()
   server.on("/modoManual", HTTP_GET, [](AsyncWebServerRequest * request)
   {
     modo = "manual";
+    apagar_horno();
+    apagar_ventilador();
     request->redirect("/");
   });
 
