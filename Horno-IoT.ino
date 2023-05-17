@@ -10,68 +10,31 @@
 #include <melody_player.h>
 #include <melody_factory.h>
 
-int buzzerPin = 23;
-MelodyPlayer player(buzzerPin, HIGH);
-const int nNotes = 3;
-String notesInicio[nNotes] = {"C7", "C7", "C7"};
-String notesOn[nNotes] = {"C7", "G7", "G7"};
-String notesOff[nNotes] = {"G7", "C7", "C7"};
-const int timeUnit = 175;
-String HOST_NAME = "http://192.168.25.188"; // IP del servidor Xampp
-String PATH_NAME = "/insert_lampara_data.php";
-String queryString;
-
-void sonido(String notes[])
-{
-  Melody melody = MelodyFactory.load("Nice Melody", timeUnit, notes, nNotes);
-  player.play(melody);
-  digitalWrite(buzzerPin, LOW);
-}
-
-int intensidad = 0;
-int pirPin = 22;
-
-// Parametros
-//  ldr
-#define ADC_VREF_mV 3300.0 // 3.3v en millivoltios
+#define ADC_VREF_mV    3300.0 // 3.3v en millivoltios
 #define ADC_RESOLUTION 4096.0
-#define LIGHT_SENSOR_PIN 21 // ESP32 pin GIOP36 (ADC0) conectado al LDR
-#define PWM_Ch 0
-#define PWM_Res 8
-#define PWM_Freq 1000
-
-// Variables auxiliares del estado de las salidas
-String AZULState = "off";
-String ROJOState = "off";
-String VERDEState = "off";
+#define PIN_LM35       36 // ESP32 pin GIOP36 (ADC0) conectado al LM35
+#define factor 0.0805860805860
+int datoVal;
+float milliVolt, tempC, tempF;
 
 // Asignando los piones GPIO
-const int AZUL = 4;
-const int ROJO = 5;
-const int VERDE = 0;
+const int AZUL = 19;
+const int ROJO = 22;
+const int VERDE = 21;
 
-int estado = LOW;
-
-int pwmE;
-int pwmA;
-
-String modo = "conjunto";
-String presencia = "no";
-int datoADC;
-float Porcentaje = 0.0, Voltaje = 0.0;
-float PorcentajeFactor = 100.0 / ADC_RESOLUTION;
-float VoltajeFactor = 3.3 / ADC_RESOLUTION;
 AsyncWebServer server(80);
-// Variables
-String pwm;
-String pwmValueE;
-String pwmValueA;
 String Zona = "Dormitorio";
-String Foco_id = "1";
+String horno_id = "1";
+String modo = "manual";
 
-String light_state = "ON";
-int rele = 18;
-int led = 19;
+String horno_state = "OFF";
+String ventilador_state = "OFF";
+int rele_horno = 16;
+int rele_ventilador1 = 17;
+int rele_ventilador2 = 5;
+
+String pwmValue;
+int temperatura = -1000;
 
 // objetos
 
@@ -108,7 +71,6 @@ void initWiFi()
 String getIP()
 {
   String ip = (WiFi.localIP().toString());
-  Serial.println(ip);
   return String(ip);
 }
 
@@ -117,7 +79,6 @@ String getIP()
 String getStatus()
 {
   float estado = WiFi.status();
-  Serial.println(estado);
   return String(estado);
 }
 // leemos el SSID y la mostramos
@@ -125,7 +86,6 @@ String getStatus()
 String getSSID()
 {
   String SSIDs = (WiFi.SSID());
-  Serial.println(SSIDs);
   return String(SSIDs);
 }
 
@@ -134,7 +94,6 @@ String getSSID()
 String getPSK()
 {
   String psks = WiFi.psk();
-  Serial.println(psks);
   return String(psks);
 }
 
@@ -143,7 +102,6 @@ String getPSK()
 String getBSSI()
 {
   String bssi = WiFi.BSSIDstr();
-  Serial.println(bssi);
   return String(bssi);
 }
 
@@ -151,21 +109,18 @@ String getBSSI()
 String getTemperature()
 {
   float adc = analogRead(36);
-  Serial.println(adc);
   return String(adc);
 }
 // leemos la presion y la mostramos
 String getPressure()
 {
   float rssi = WiFi.RSSI();
-  Serial.println(rssi);
   return String(rssi);
 }
 
 // Remplazamos el marcador con el estado del  LED
 String processor(const String &var)
 {
-  Serial.print(var + " : ");
   // esta función primero verifica si el marcador de posición es el ESTADO que hemos creado en el archivo HTML.
   if (var == "ADC")
   {
@@ -217,11 +172,114 @@ String processor(const String &var)
   return String();
 }
 
+void calentar() {
+  horno_state = "ON";
+  digitalWrite(rele_horno, LOW);
+  ventilador_state = "OFF";
+  digitalWrite(rele_ventilador1, HIGH);
+  digitalWrite(rele_ventilador2, HIGH);
+}
+
+void enfriar() {
+  horno_state = "OFF";
+  digitalWrite(rele_horno, HIGH);
+  ventilador_state = "ON";
+  digitalWrite(rele_ventilador1, LOW);
+  digitalWrite(rele_ventilador2, LOW);
+}
+
+void encender_horno(){
+  horno_state = "ON";
+  digitalWrite(rele_horno, LOW);
+}
+
+void apagar_horno(){
+  horno_state = "OFF";
+  digitalWrite(rele_horno, HIGH);
+}
+
+void encender_ventilador(){
+  ventilador_state = "ON";
+  digitalWrite(rele_ventilador1, LOW);
+  digitalWrite(rele_ventilador2, LOW);
+}
+
+void apagar_ventilador(){
+  ventilador_state = "OFF";
+  digitalWrite(rele_ventilador1, HIGH);
+  digitalWrite(rele_ventilador2, HIGH);
+}
+
+
 void setup()
 {
   Serial.begin(115200);
+  initWiFi();
+  initSpiffs();
 
-  pinMode(pirPin, INPUT);
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest * request)
+  {
+    request->send(SPIFFS, "/index.html", "text/html", false, processor);
+  });
+
+  server.on("/switch_calentar_horno", HTTP_GET, [](AsyncWebServerRequest * request)
+  {
+    if(horno_state == "ON"){
+      apagar_horno();
+    }else{
+      encender_horno();
+    }
+    request->redirect("/");
+  });
+
+  server.on("/switch_enfriar_horno", HTTP_GET, [](AsyncWebServerRequest * request)
+  {
+    if(ventilador_state == "ON"){
+     apagar_ventilador();
+    }else{
+      encender_ventilador();
+    }
+    request->redirect("/");
+  });
+
+  server.on("/set_point", HTTP_POST, [](AsyncWebServerRequest * request)
+  {
+    pwmValue = request->arg("value");
+    temperatura = pwmValue.toInt();
+    request->redirect("/");
+  });
+
+  server.on("/test", HTTP_GET, [](AsyncWebServerRequest * request)
+  {
+    calentar();
+    delay(2000);
+    enfriar();
+    delay(2000);
+    calentar();
+    delay(2000);
+    enfriar();
+    digitalWrite(rele_horno, HIGH);
+    digitalWrite(rele_ventilador1, HIGH);
+    digitalWrite(rele_ventilador2, HIGH);
+
+    request->redirect("/");
+  });
+
+  server.on("/modoManual", HTTP_GET, [](AsyncWebServerRequest * request)
+  {
+    modo = "manual";
+    request->redirect("/");
+  });
+
+  server.on("/modoAutomaticoIntensidad", HTTP_GET, [](AsyncWebServerRequest * request)
+  {
+    modo = "automaticoIntensidad";
+    request->redirect("/");
+  });
+
+
+  server.serveStatic("/", SPIFFS, "/");
+  server.begin();
 
   // Initialize the output variables as outputs
   pinMode(AZUL, OUTPUT);
@@ -232,213 +290,40 @@ void setup()
   digitalWrite(VERDE, LOW);
   digitalWrite(ROJO, LOW);
 
-  digitalWrite(buzzerPin, LOW);
-  pinMode(rele, OUTPUT);
-  digitalWrite(rele, LOW);
-  pinMode(LIGHT_SENSOR_PIN, INPUT);
-
-  ledcAttachPin(led, PWM_Ch);
-  ledcSetup(PWM_Ch, PWM_Freq, PWM_Res);
-
-  initWiFi();
-  initSpiffs();
-
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest * request)
-  {
-    request->send(SPIFFS, "/index.html", "text/html", false, processor);
-  });
-
-  server.on("/switch_light", HTTP_GET, [](AsyncWebServerRequest * request)
-  {
-    if (light_state == "OFF") {
-      digitalWrite(rele, HIGH);
-      Serial.println("Estado actual de la lampara: "+light_state);
-      light_state = "ON";
-      Serial.println("Estado actualizado de la lampara: "+light_state);
-      sonido(notesOn);
-    } else {
-      if (light_state == "ON") {
-        Serial.println("Estado actual de la lampara: "+light_state);
-        digitalWrite(rele, LOW);
-        light_state = "OFF";
-        Serial.println("Estado actualizado de la lampara: "+light_state);
-        sonido(notesOff);
-      }
-    }
-    queryString = "?Foco_id=" + Foco_id + "&Zona=" + Zona + "&Estado=" + (light_state == "OFF" ? "0" : "1") + "&Presencia=" + (presencia == "si" ? "1" : "0") + "&LDR=" + datoADC;
-    Serial.print("Cadena Resultante = "); Serial.println(queryString);
-    // Escribiendo datos
-    HTTPClient http;
-    http.begin(HOST_NAME + PATH_NAME + queryString); //HTTP
-    int httpCode = http.GET();
-
-    // httpCode will be negative on error
-    if (httpCode > 0) {
-      // file found at server
-      if (httpCode == HTTP_CODE_OK) {
-        String payload = http.getString();
-        Serial.println(payload);
-      } else {
-        // HTTP header has been send and Server response header has been handled
-        Serial.printf("[HTTP] GET... code: %d\n", httpCode);
-      }
-    } else {
-      Serial.printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
-    }
-    http.end();
-    Serial.println("Estado de la lampara: " + light_state);
-    request->redirect("/");
-  });
-
-  server.on("/pwm", HTTP_POST, [](AsyncWebServerRequest * request)
-  {
-    pwm = request->arg("value");
-    ledcWrite(PWM_Ch, pwm.toInt());
-    request->redirect("/");
-  });
-
-  server.on("/pwmValidado", HTTP_POST, [](AsyncWebServerRequest * request)
-  {
-    pwmValueE = request->arg("valueE");
-    pwmValueA = request->arg("valueA");
-
-    pwmE = pwmValueE.toInt();
-    pwmA = pwmValueA.toInt();
-    intensidad = 1;
-    request->redirect("/");
-  });
-
-  server.on("/modoManual", HTTP_GET, [](AsyncWebServerRequest * request)
-  {
-    modo = "manual";
-    request->redirect("/");
-  });
-
-  server.on("/modoConjunto", HTTP_GET, [](AsyncWebServerRequest * request)
-  {
-    modo = "conjunto";
-    request->redirect("/");
-  });
-
-  server.on("/modoAutomaticoHorario", HTTP_GET, [](AsyncWebServerRequest * request)
-  {
-    modo = "automaticoHorario";
-    request->redirect("/");
-  });
-
-  server.on("/modoAutomaticoIntensidad", HTTP_GET, [](AsyncWebServerRequest * request)
-  {
-    modo = "automaticoIntensidad";
-    request->redirect("/");
-  });
-
-  server.on("/modoApagado", HTTP_GET, [](AsyncWebServerRequest * request)
-  {
-    modo = "apagado";
-    sonido(notesOff);
-    request->redirect("/");
-  });
-
-  server.on("/modoEncendido", HTTP_GET, [](AsyncWebServerRequest * request)
-  {
-    sonido(notesInicio);
-    request->redirect("/");
-  });
-
-  server.on("/modo", HTTP_GET, [](AsyncWebServerRequest * request)
-  {
-    request->send(200, "text/plain", modo);
-  });
-
-  server.serveStatic("/", SPIFFS, "/");
-
-  server.begin();
+  pinMode(rele_horno, OUTPUT);
+  pinMode(rele_ventilador1, OUTPUT);
+  pinMode(rele_ventilador2, OUTPUT);
+  digitalWrite(rele_horno, HIGH);
+  digitalWrite(rele_ventilador1, HIGH);
+  digitalWrite(rele_ventilador2, HIGH);
+  ventilador_state = "OFF";
+  horno_state = "OFF";
 }
 void loop()
 {
-  // testDimmer();
-  datoADC = analogRead(39);
-  Porcentaje = PorcentajeFactor * datoADC;
-  bool seDetecta = digitalRead(pirPin);
-
-  if (seDetecta)
-  {
-    presencia = "si";
-  } else {
-    presencia = "no";
-  }
-
-  if (presencia == "si")
-  {
-    if (modo == "manual")
-    {
-      digitalWrite(ROJO, LOW);
-      digitalWrite(VERDE, HIGH);
-      digitalWrite(AZUL, LOW);
-    }
-    if (modo == "automaticoHorario" || modo == "conjunto")
-    {
-      ledcWrite(PWM_Ch, Porcentaje);
-
-      if (modo == "conjunto")
-      {
-        digitalWrite(ROJO, HIGH);
-        digitalWrite(VERDE, LOW);
-        digitalWrite(AZUL, LOW);
-      }
-      else
-      {
-        digitalWrite(ROJO, LOW);
-        digitalWrite(VERDE, LOW);
-        digitalWrite(AZUL, HIGH);
-      }
-    }
-    if (modo == "automaticoIntensidad" || modo == "conjunto")
-    {
-      ledcWrite(PWM_Ch, Porcentaje);
-
-      if (modo == "conjunto")
-      {
-        digitalWrite(ROJO, HIGH);
-        digitalWrite(VERDE, LOW);
-        digitalWrite(AZUL, LOW);
-      }
-      if (modo == "automaticoIntensidad")
-      {
-        digitalWrite(ROJO, HIGH);
-        digitalWrite(VERDE, LOW);
-        digitalWrite(AZUL, HIGH);
-      }
-    }
-  }
-  else
-  {
-    modo = "apagado";
-  }
-
-  if (modo == "apagado")
-  {
-    digitalWrite(rele, LOW);
-    //light_state = "OFF";
-    digitalWrite(ROJO, LOW);
-    digitalWrite(VERDE, LOW);
-    digitalWrite(AZUL, LOW);
-  }
-
-  if (intensidad == 1)
-  {
-    if (datoADC <= pwmE)
-    {
-      digitalWrite(rele, HIGH);
-      //light_state = "ON";
-    }
-
-    if (datoADC >= pwmA)
-    {
-      digitalWrite(rele, LOW);
-      //light_state = "OFF";
+  datoVal = analogRead(PIN_LM35);
+  // Convirtiendo los datos del ADC a milivoltios
+  milliVolt = datoVal * (ADC_VREF_mV / ADC_RESOLUTION);
+  // Convirtiendo el voltaje al temperatura en °C
+  tempC = datoVal * factor ;
+  // convirtiendo °C a °F
+  tempF = tempC * 9 / 5 + 32;
+  if (temperatura != -1000) {
+    if (tempC > temperatura) {
+      enfriar();
+    }else{
+      calentar();
     }
   }
 
-  delay(100);
+  // Imprimiendo valores en el monitor serial:
+  Serial.print("Lectura del ADC: ");
+  Serial.print(datoVal);   // Valor leido por el ADC
+  Serial.print("  Temperatura: ");
+  Serial.print(tempC);   // Imprimiendo la temperatura en °C
+  Serial.print("°C");
+  Serial.print("  ~  "); //
+  Serial.print(tempF);   // Imprimiendo la temperatura en °F
+  Serial.println("°F");
+  delay(500);
 }

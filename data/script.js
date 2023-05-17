@@ -2,29 +2,42 @@ const apiKey = '0fc34377c3d4d58c829a0907b8a6d7ed';
 const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?q=La Paz,BO&appid=${apiKey}&units=metric`;
 const timeUrl = 'https://worldtimeapi.org/api/ip';
 
-const foco = document.getElementById("foco");
+const calentar = document.getElementById("calentar");
+const enfriar = document.getElementById("enfriar");
 
 window.onload = function() {
   modoManual();
 };
 
-foco.addEventListener("click", () => {
-  const paths = foco.getElementsByTagName("path");
-  if (paths[0].getAttribute("fill") === "#000000") {
-    for (let i = 0; i < paths.length; i++) {
-      paths[i].setAttribute("fill", "#fff200");
-    }
-  } else {
-    for (let i = 0; i < paths.length; i++) {
-      paths[i].setAttribute("fill", "#000000");
-    }
+enfriar.addEventListener("click", () => {
+  let paths = enfriar.getElementsByTagName("path");
+  let color = paths[0].getAttribute("stroke") == "#0000aa" ? "#000000" : "#0000aa";
+  for (let i = 0; i < paths.length; i++) {
+    paths[i].setAttribute("stroke", color);
   }
-  switch_light();
+  //Encender o apagar el horno llamando al servidor ESP32
+  enfriar_horno();
 });
 
-function switch_light() {
+calentar.addEventListener("click", () => {
+  let paths = horno.getElementsByTagName("path");
+  let color = paths[0].getAttribute("fill") == "#ff1200" ? "#000000" : "#ff1200";
+  for (let i = 0; i < paths.length; i++) {
+    paths[i].setAttribute("fill", color);
+  }
+  //Encender o apagar el horno llamando al servidor ESP32
+  calentar_horno();
+});
+
+function enfriar_horno() {
   var xhttp = new XMLHttpRequest();
-  xhttp.open("GET", "/switch_light", true);
+  xhttp.open("GET", "/switch_enfriar_horno", true);
+  xhttp.send(); 
+}
+
+function calentar_horno() {
+  var xhttp = new XMLHttpRequest();
+  xhttp.open("GET", "/switch_calentar_horno", true);
   xhttp.send();
 }
 
@@ -81,13 +94,13 @@ async function getTimeData() {
       const paths = foco.getElementsByTagName("path");
 
       if (enHours === hours && enMinutes === minutes) {
-        switch_light();
+        switch_horno();
         console.log("Encendiendo foco");
         for (let i = 0; i < paths.length; i++) {
           paths[i].setAttribute("fill", "#fff200");
         }
       } else if (apHours === hours && apMinutes === minutes) {
-        switch_light();
+        switch_horno();
         console.log("Apagando foco");
         for (let i = 0; i < paths.length; i++) {
           paths[i].setAttribute("fill", "#000000");
@@ -102,17 +115,6 @@ async function getTimeData() {
 getWeatherData();
 /* call getTimeData every second */
 setInterval(getTimeData, 1000);
-
-setInterval(function ( ) {
-  var xhttp = new XMLHttpRequest();
-  xhttp.onreadystatechange = function() {
-    if (this.readyState == 4 && this.status == 200) {
-      document.getElementById("adc").innerHTML = this.responseText;
-    }
-  };
-  xhttp.open("GET", "/adc", true);
-  xhttp.send();
-}, 10000 );
 
 function update(val) {
   const foco = document.getElementById("foco");
@@ -351,4 +353,10 @@ function modoShutdown(){
     xhttp.open("GET", "/modoEncendido", true);
     xhttp.send();
   }
+}
+
+function test(){
+  var xhttp = new XMLHttpRequest();
+  xhttp.open("GET", "/test", true);
+  xhttp.send();
 }
