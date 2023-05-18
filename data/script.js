@@ -9,6 +9,32 @@ window.onload = function() {
   modoManual();
 };
 
+function intensidad_senal(intensidad){
+  let wifi = document.getElementById("wifi");
+  let paths = wifi.getElementsByTagName("path");
+  if (intensidad > -40){
+    for (let i = 0; i < paths.length; i++) {
+      paths[i].setAttribute("fill", "#000000");
+    }
+  }else if(intensidad > -53 && intensidad <= -40){
+    for (let i = 0; i < paths.length; i++) {
+      if(parseInt(paths[i].getAttribute("id")) <= 66){
+        paths[i].setAttribute("fill", "#000000");
+      }else{
+        paths[i].setAttribute("fill", "#f16023");
+      }
+    }
+  }else if(intensidad <= -53 ){
+    for (let i = 0; i < paths.length; i++) {
+      if(parseInt(paths[i].getAttribute("id")) <= 33){
+        paths[i].setAttribute("fill", "#000000");
+      }else{
+        paths[i].setAttribute("fill", "#f16023");
+      }
+    }
+  }
+}
+
 function switch_calentar(){
   let paths = horno.getElementsByTagName("path");
   let color = paths[0].getAttribute("fill") == "#ff1200" ? "#000000" : "#ff1200";
@@ -89,7 +115,9 @@ async function encender_por_tiempo(){
   value = document.getElementById("tiempo").value;
   encender_horno_servidor();
   encender_horno();
-  sleep(value);
+  await new Promise(resolve => setTimeout(resolve, value*1000*60));
+  apagar_horno_servidor();
+  apagar_horno();
 }
 
 async function getWeatherData() {
@@ -243,6 +271,8 @@ async function getServerStatus(){
     }else{
       apagar_horno();
     }
+
+    intensidad_senal(data.rssi);
 
     var xh = (new Date()).getTime(), // current time
     yh = data.horno === "ON"? 1: 0;

@@ -152,21 +152,6 @@ String processor(const String &var)
   {
     return getBSSI();
   }
-  else if (var == "rssicon")
-  {
-    if (WiFi.RSSI() > -40)
-    {
-      return "<img src=\"https://imgs.search.brave.com/dIod6-5osO4TZrJtzW6jnrKZsgYOIGj4MwEH7676HfY/rs:fit:512:512:1/g:ce/aHR0cHM6Ly93d3cu/aWNvbnNkYi5jb20v/aWNvbnMvZG93bmxv/YWQvcHVycGxlL3dp/ZmktNTEyLnBuZw\" alt=\"logowifi\" width=\"90\">";
-    }
-    else if (WiFi.RSSI() > -53 && WiFi.RSSI() <= -40)
-    {
-      return "<img src=\"https://imgs.search.brave.com/G6f3-B9rLWFwoY7-X2Yt1qOtlKUgn8g74Ka-K1f66BU/rs:fit:512:512:1/g:ce/aHR0cHM6Ly93d3cu/aWNvbnNkYi5jb20v/aWNvbnMvZG93bmxv/YWQvcHVycGxlL3dp/ZmktMy1iYXJzLTUx/Mi5wbmc\" alt=\"logowifi\" width=\"90\">";
-    }
-    else if (WiFi.RSSI() <= -53)
-    {
-      return "<img src=\"https://imgs.search.brave.com/Vf85v4p4SpyevfsxdiHf2NmPiclgAfeY2ZPY8OYePlw/rs:fit:256:256:1/g:ce/aHR0cHM6Ly93d3cu/aWNvbnNkYi5jb20v/aWNvbnMvcHJldmll/dy9wdXJwbGUvd2lm/aS0yLWJhcnMteHhs/LnBuZw\" alt=\"logowifi\" width=\"90\">";
-    }
-  }
   return String();
 }
 
