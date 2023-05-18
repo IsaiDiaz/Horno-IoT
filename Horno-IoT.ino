@@ -376,10 +376,12 @@ void loop()
   // convirtiendo °C a °F
   tempF = tempC * 9 / 5 + 32;
   if (temperatura != -1000) {
-    if (tempC > temperatura) {
+    if (tempC > temperatura && ventilador_state == "OFF") {
       enfriar();
     } else {
-      calentar();
+      if(tempC < temperatura && horno_state == "OFF"){
+        calentar();
+      }
     }
   }
 
