@@ -317,6 +317,7 @@ void setup()
   server.on("/modoApagado", HTTP_GET, [](AsyncWebServerRequest * request)
   {
     modo = "apagado";
+    temperatura = -1000;
     apagar_horno();
     apagar_ventilador();
     request->redirect("/");
