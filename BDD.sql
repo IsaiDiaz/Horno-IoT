@@ -33,10 +33,82 @@ INSERT INTO `TablaHorno` (
 ) VALUES (
     NULL,
     '1',
-    'Zona 1',
+    'Cocina',
     '2023-11-20',
     '12:00:00',
     '1',
+    '0',
+    '100',
+    '50',
+    '30'
+);
+
+INSERT INTO `TablaHorno` (
+    `NumReg`,
+    `Horno_Id`,
+    `Zona`,
+    `Fecha`,
+    `HoraActual`,
+    `Calefactor`,
+    `Enfriador`,
+    `Set_Point`,
+    `TempProceso`,
+    `SensorLM35`
+) VALUES (
+    NULL,
+    '1',
+    'Cocina',
+    '2023-11-20',
+    '16:00:01',
+    '0',
+    '0',
+    '100',
+    '50',
+    '30'
+);
+
+INSERT INTO `TablaHorno` (
+    `NumReg`,
+    `Horno_Id`,
+    `Zona`,
+    `Fecha`,
+    `HoraActual`,
+    `Calefactor`,
+    `Enfriador`,
+    `Set_Point`,
+    `TempProceso`,
+    `SensorLM35`
+) VALUES (
+    NULL,
+    '1',
+    'Cocina',
+    '2023-11-20',
+    '17:00:02',
+    '1',
+    '0',
+    '100',
+    '50',
+    '30'
+);
+
+INSERT INTO `TablaHorno` (
+    `NumReg`,
+    `Horno_Id`,
+    `Zona`,
+    `Fecha`,
+    `HoraActual`,
+    `Calefactor`,
+    `Enfriador`,
+    `Set_Point`,
+    `TempProceso`,
+    `SensorLM35`
+) VALUES (
+    NULL,
+    '1',
+    'Cocina',
+    '2023-11-20',
+    '20:00:03',
+    '0',
     '0',
     '100',
     '50',
