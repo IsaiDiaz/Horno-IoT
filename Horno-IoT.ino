@@ -34,7 +34,9 @@ int rele_ventilador2 = 5;
 String pwmValue;
 int temperatura = -1000;
 
-// objetos
+String HOST_NAME = "http://192.168.0.106"; // IP del servidor Xampp
+String PATH_NAME = "/insert_horno_data.php";
+String queryString;
 
 // funciones
 void initSpiffs()
@@ -161,6 +163,7 @@ void calentar() {
   ventilador_state = "OFF";
   digitalWrite(rele_ventilador1, HIGH);
   digitalWrite(rele_ventilador2, HIGH);
+  subir_datos();
 }
 
 void enfriar() {
@@ -169,30 +172,63 @@ void enfriar() {
   ventilador_state = "ON";
   digitalWrite(rele_ventilador1, LOW);
   digitalWrite(rele_ventilador2, LOW);
+  subir_datos();
 }
 
 void encender_horno() {
   horno_state = "ON";
   digitalWrite(rele_horno, LOW);
+  subir_datos();
 }
 
 void apagar_horno() {
   horno_state = "OFF";
   digitalWrite(rele_horno, HIGH);
+  subir_datos();
 }
 
 void encender_ventilador() {
   ventilador_state = "ON";
   digitalWrite(rele_ventilador1, LOW);
   digitalWrite(rele_ventilador2, LOW);
+  subir_datos();
 }
 
 void apagar_ventilador() {
   ventilador_state = "OFF";
   digitalWrite(rele_ventilador1, HIGH);
   digitalWrite(rele_ventilador2, HIGH);
+  subir_datos();
 }
 
+void subir_datos() {
+  datoVal = analogRead(PIN_LM35);
+  // Convirtiendo los datos del ADC a milivoltios
+  milliVolt = datoVal * (ADC_VREF_mV / ADC_RESOLUTION);
+  // Convirtiendo el voltaje al temperatura en °C
+  tempC = datoVal * factor ;
+  queryString = "?Horno_id=" + horno_id + "&Zona=" + Zona + "&Calefactor=" + (horno_state == "ON" ? 1 : 0) + "&Enfriador=" + (ventilador_state == "ON" ? 1 : 0) + "&Set_Point=" + String(temperatura) + "&TempProceso=" + String(tempC) + "&SensorLM35=" + String(tempC);
+  Serial.print("Cadena Resultante = "); Serial.println(queryString);
+  // Escribiendo datos
+  HTTPClient http;
+  http.begin(HOST_NAME + PATH_NAME + queryString); //HTTP
+  int httpCode = http.GET();
+
+  // httpCode will be negative on error
+  if (httpCode > 0) {
+    // file found at server
+    if (httpCode == HTTP_CODE_OK) {
+      String payload = http.getString();
+      Serial.println(payload);
+    } else {
+      // HTTP header has been send and Server response header has been handled
+      Serial.printf("[HTTP] GET... code: %d\n", httpCode);
+    }
+  } else {
+    Serial.printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
+  }
+  http.end();
+}
 
 void setup()
 {
@@ -231,13 +267,13 @@ void setup()
   {
     encender_horno();
     request->redirect("/");
-  });  
+  });
 
   server.on("/apagar_horno", HTTP_GET, [](AsyncWebServerRequest * request)
   {
     apagar_horno();
     request->redirect("/");
-  }); 
+  });
 
   server.on("/set_point", HTTP_POST, [](AsyncWebServerRequest * request)
   {
@@ -300,7 +336,7 @@ void setup()
 
     StaticJsonDocument<200> doc;
     doc["ventilador"] = ventilador_state;
-    doc["horno"]= horno_state;
+    doc["horno"] = horno_state;
     doc["temperatura"] = tempC;
     doc["rssi"] = WiFi.RSSI();
 
